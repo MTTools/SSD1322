@@ -37,28 +37,11 @@ extern "C" {
 #define SSD1322_MIN_SEG 0x1C
 #define SSD1322_MAX_SEG 0x5B
 
-#define SCREEN_WIDTH 256
-#define SCREEN_HEIGHT 64
-#define SCREEN_BPP 4
-
-// compression methods
-#define IMAGE_COMPRESSION_NONE      0 // (uncompressed image_data)
-#define IMAGE_COMPRESSION_LZ77      1 // LZ77~ compression
-
-// used compression method
-#define IMAGE_COMPRESSION_METHOD    IMAGE_COMPRESSION_LZ77
-
-// image decompression buffer size
-#define DECOMPRESSION_BUFFER_SIZE   (180 * 180)
-
 // screen graphic buffer
 static union {
     uint8_t buff1d[SCREEN_HEIGHT * SCREEN_WIDTH / (8 / SCREEN_BPP)];
     uint8_t buff2d[SCREEN_HEIGHT][SCREEN_WIDTH / (8 / SCREEN_BPP)];
 } screen_buffer;
-
-// image decompression buffer
-static uint8_t decompression_buffer[DECOMPRESSION_BUFFER_SIZE];
 
 static void (*_sendCommand)(uint8_t command);
 static void (*_sendData)(uint8_t data);
@@ -173,6 +156,11 @@ void ssd1322_drawPixel(int x, int y, uint8_t color) {
     int clear = 0xF0 >> shift;
     screen_buffer.buff2d[y][col] &= clear;
     screen_buffer.buff2d[y][col] |= bits;
+}
+
+void ssd1322_fill(uint8_t color) {
+    color |= (color << 4);
+    memset(screen_buffer.buff2d, color, sizeof(screen_buffer.buff2d));
 }
 
 #ifdef __cplusplus
