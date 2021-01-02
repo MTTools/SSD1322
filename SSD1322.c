@@ -139,7 +139,7 @@ void ssd1322_init(void (*sendCommand)(uint8_t command),
     // clear screen buffer
     memset(&screen_buffer, 0, sizeof(screen_buffer));
     // flush graphics buffer to screen
-    ssd1322_display();
+    ssd1322_flushBuffer();
 }
 
 void ssd1322_flushBuffer(void) {
