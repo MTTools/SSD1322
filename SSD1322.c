@@ -6,55 +6,55 @@
 extern "C" {
 #endif
 
-#define SSD1322_SETCOMMANDLOCK           0xFD
-#define SSD1322_DISPLAYOFF               0xAE
-#define SSD1322_DISPLAYON                0xAF
-#define SSD1322_SETCLOCKDIVIDER          0xB3
-#define SSD1322_SETDISPLAYOFFSET         0xA2
-#define SSD1322_SETSTARTLINE             0xA1
-#define SSD1322_SETREMAP                 0xA0
-#define SSD1322_FUNCTIONSEL              0xAB
-#define SSD1322_DISPLAYENHANCE           0xB4
-#define SSD1322_SETCONTRASTCURRENT       0xC1
-#define SSD1322_MASTERCURRENTCONTROL     0xC7
-#define SSD1322_SETPHASELENGTH           0xB1
-#define SSD1322_DISPLAYENHANCEB          0xD1
-#define SSD1322_SETPRECHARGEVOLTAGE      0xBB
-#define SSD1322_SETSECONDPRECHARGEPERIOD 0xB6
-#define SSD1322_SETVCOMH                 0xBE
-#define SSD1322_NORMALDISPLAY            0xA6
-#define SSD1322_INVERSEDISPLAY           0xA7
-#define SSD1322_SETMUXRATIO              0xCA
-#define SSD1322_SETCOLUMNADDR            0x15
-#define SSD1322_SETROWADDR               0x75
-#define SSD1322_WRITERAM                 0x5C
-#define SSD1322_ENTIREDISPLAYON          0xA5
-#define SSD1322_ENTIREDISPLAYOFF         0xA4
-#define SSD1322_SETGPIO                  0xB5
-#define SSD1322_EXITPARTIALDISPLAY       0xA9
-#define SSD1322_SELECTDEFAULTGRAYSCALE   0xB9
+typedef enum {
+    SSD1322_SETCOMMANDLOCK           = 0xFD,
+    SSD1322_DISPLAYOFF               = 0xAE,
+    SSD1322_DISPLAYON                = 0xAF,
+    SSD1322_SETCLOCKDIVIDER          = 0xB3,
+    SSD1322_SETDISPLAYOFFSET         = 0xA2,
+    SSD1322_SETSTARTLINE             = 0xA1,
+    SSD1322_SETREMAP                 = 0xA0,
+    SSD1322_FUNCTIONSEL              = 0xAB,
+    SSD1322_DISPLAYENHANCE           = 0xB4,
+    SSD1322_SETCONTRASTCURRENT       = 0xC1,
+    SSD1322_MASTERCURRENTCONTROL     = 0xC7,
+    SSD1322_SETPHASELENGTH           = 0xB1,
+    SSD1322_DISPLAYENHANCEB          = 0xD1,
+    SSD1322_SETPRECHARGEVOLTAGE      = 0xBB,
+    SSD1322_SETSECONDPRECHARGEPERIOD = 0xB6,
+    SSD1322_SETVCOMH                 = 0xBE,
+    SSD1322_NORMALDISPLAY            = 0xA6,
+    SSD1322_INVERSEDISPLAY           = 0xA7,
+    SSD1322_SETMUXRATIO              = 0xCA,
+    SSD1322_SETCOLUMNADDR            = 0x15,
+    SSD1322_SETROWADDR               = 0x75,
+    SSD1322_WRITERAM                 = 0x5C,
+    SSD1322_ENTIREDISPLAYON          = 0xA5,
+    SSD1322_ENTIREDISPLAYOFF         = 0xA4,
+    SSD1322_SETGPIO                  = 0xB5,
+    SSD1322_EXITPARTIALDISPLAY       = 0xA9,
+    SSD1322_SELECTDEFAULTGRAYSCALE   = 0xB9,
+} SSD1322Command;
 
 #define SSD1322_MIN_SEG 0x1C
 #define SSD1322_MAX_SEG 0x5B
 
 // screen graphic buffer
-static union {
-    uint8_t buff1d[SCREEN_HEIGHT * SCREEN_WIDTH / (8 / SCREEN_BPP)];
-    uint8_t buff2d[SCREEN_HEIGHT][SCREEN_WIDTH / (8 / SCREEN_BPP)];
-} screen_buffer;
+uint8_t ssd1322_screen_buffer[SSD1322_SCREEN_HEIGHT * SSD1322_SCREEN_WIDTH * SSD1322_SCREEN_BPP / 8];
 
 static void (*_sendCommand)(uint8_t command);
-static void (*_sendData)(uint8_t data);
 static void (*_sendDataArray)(uint8_t *data, int32_t length);
 
+void _sendData(uint8_t data) {
+    _sendDataArray(&data, 1);
+}
+
 void ssd1322_init(void (*sendCommand)(uint8_t command),
-        void (*sendData)(uint8_t data),
-        void (*sendDataArray)(uint8_t *data, int32_t length)) {
+        void (*sendData)(uint8_t *data, int32_t length)) {
 
     // attach communication functions
     _sendCommand = sendCommand;
-    _sendData = sendData;
-    _sendDataArray = sendDataArray;
+    _sendDataArray = sendData;
 
     // hw init
     _sendCommand(SSD1322_SETCOMMANDLOCK);// 0xFD
@@ -120,7 +120,7 @@ void ssd1322_init(void (*sendCommand)(uint8_t command),
     _sendCommand(SSD1322_DISPLAYON);// 0xAF
 
     // clear screen buffer
-    memset(&screen_buffer, 0, sizeof(screen_buffer));
+    memset(ssd1322_screen_buffer, 0, sizeof(ssd1322_screen_buffer));
     // flush graphics buffer to screen
     ssd1322_flushBuffer();
 }
@@ -136,31 +136,7 @@ void ssd1322_flushBuffer(void) {
 
     _sendCommand(SSD1322_WRITERAM);
 
-    _sendDataArray(screen_buffer.buff1d, sizeof(screen_buffer));
-}
-
-void ssd1322_drawPixel(int x, int y, uint8_t color) {
-    if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) {
-        return;
-    }
-
-    const uint8_t MaxColor = (1 << SCREEN_BPP) - 1;
-
-    color = color * MaxColor / 255;
-
-    color &= 0x0F;
-    int col = x / 2;
-    int pix = x % 2;
-    int shift = (1 - pix) * 4;
-    int bits = color << shift;
-    int clear = 0xF0 >> shift;
-    screen_buffer.buff2d[y][col] &= clear;
-    screen_buffer.buff2d[y][col] |= bits;
-}
-
-void ssd1322_fill(uint8_t color) {
-    color |= (color << 4);
-    memset(screen_buffer.buff2d, color, sizeof(screen_buffer.buff2d));
+    _sendDataArray(ssd1322_screen_buffer, sizeof(ssd1322_screen_buffer));
 }
 
 #ifdef __cplusplus
